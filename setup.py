@@ -15,12 +15,12 @@ setup(
     namespace_packages=['mr'],
     install_requires=[
         'setuptools',
-        'mr.awsome',
+        'mr.awsome >= 1.0dev',
         'boto >= 2.0'
     ],
     setup_requires=[
         'setuptools-git'],
     entry_points="""
         [mr.awsome.plugins]
-        ec2 = mr.awsome.ec2:plugin
+        ec2 = mr.awsome_ec2:plugin
     """)

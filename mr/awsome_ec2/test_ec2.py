@@ -81,7 +81,7 @@ class EC2SetupTests(TestCase):
         self._write_config('\n'.join([
             '[ec2-master:default]',
             '[ec2-instance:foo]']))
-        with patch('mr.awsome.ec2.log') as LogMock:
+        with patch('mr.awsome_ec2.log') as LogMock:
             with self.assertRaises(SystemExit):
                 self.aws(['./bin/aws', 'status', 'foo'])
         LogMock.error.assert_called_with('No region set in ec2-instance:foo or ec2-master:default config')
@@ -91,7 +91,7 @@ class EC2SetupTests(TestCase):
             '[ec2-master:default]',
             'region = eu-west-1',
             '[ec2-instance:foo]']))
-        with patch('mr.awsome.ec2.log') as LogMock:
+        with patch('mr.awsome_ec2.log') as LogMock:
             with self.assertRaises(SystemExit):
                 self.aws(['./bin/aws', 'status', 'foo'])
         LogMock.error.assert_called_with("You need to either set the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables or add the path to files containing them to the config. You can find the values at http://aws.amazon.com under 'Your Account'-'Security Credentials'.")
@@ -105,7 +105,7 @@ class EC2SetupTests(TestCase):
             'access-key-id = %s' % key,
             'secret-access-key = %s' % secret,
             '[ec2-instance:foo]']))
-        with patch('mr.awsome.ec2.log') as LogMock:
+        with patch('mr.awsome_ec2.log') as LogMock:
             with self.assertRaises(SystemExit):
                 self.aws(['./bin/aws', 'status', 'foo'])
         LogMock.error.assert_called_with("The access-key-id file at '%s' doesn't exist.", key)
@@ -121,7 +121,7 @@ class EC2SetupTests(TestCase):
             'access-key-id = %s' % key,
             'secret-access-key = %s' % secret,
             '[ec2-instance:foo]']))
-        with patch('mr.awsome.ec2.log') as LogMock:
+        with patch('mr.awsome_ec2.log') as LogMock:
             with self.assertRaises(SystemExit):
                 self.aws(['./bin/aws', 'status', 'foo'])
         LogMock.error.assert_called_with("The secret-access-key file at '%s' doesn't exist.", secret)
@@ -140,7 +140,7 @@ class EC2SetupTests(TestCase):
             'secret-access-key = %s' % secret,
             '[ec2-instance:foo]']))
         self.boto_ec2_regions_mock.return_value = []
-        with patch('mr.awsome.ec2.log') as LogMock:
+        with patch('mr.awsome_ec2.log') as LogMock:
             with self.assertRaises(SystemExit):
                 self.aws(['./bin/aws', 'status', 'foo'])
         LogMock.error.assert_called_with("Region '%s' not found in regions returned by EC2.", 'eu-west-1')
@@ -153,7 +153,7 @@ class EC2SetupTests(TestCase):
         region = MockRegion()
         region.name = 'eu-west-1'
         self.boto_ec2_regions_mock.return_value = [region]
-        with patch('mr.awsome.ec2.log') as LogMock:
+        with patch('mr.awsome_ec2.log') as LogMock:
             if 'AWS_ACCESS_KEY_ID' in os.environ:  # pragma: no cover
                 del os.environ['AWS_ACCESS_KEY_ID']
             os.environ['AWS_ACCESS_KEY_ID'] = 'ham'
@@ -228,7 +228,7 @@ class EC2Tests(TestCase):
         region = MockRegion()
         region.name = 'eu-west-1'
         self.boto_ec2_regions_mock.return_value = [region]
-        with patch('mr.awsome.ec2.log') as LogMock:
+        with patch('mr.awsome_ec2.log') as LogMock:
             try:
                 self.aws(['./bin/aws', 'status', 'foo'])
             except SystemExit:  # pragma: no cover - only if something is wrong
@@ -254,7 +254,7 @@ class EC2Tests(TestCase):
         instance.id = 'i-12345678'
         reservation.instances.append(instance)
         self.boto_ec2_regions_mock.return_value = [region]
-        with patch('mr.awsome.ec2.log') as LogMock:
+        with patch('mr.awsome_ec2.log') as LogMock:
             try:
                 self.aws(['./bin/aws', 'status', 'foo'])
             except SystemExit:  # pragma: no cover - only if something is wrong
