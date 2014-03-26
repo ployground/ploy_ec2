@@ -26,8 +26,6 @@ setup(
         'mr.awsome >= 1.0dev',
         'boto >= 2.0',
         'lazy'],
-    setup_requires=[
-        'setuptools-git'],
     entry_points="""
         [mr.awsome.plugins]
         ec2 = mr.awsome_ec2:plugin
