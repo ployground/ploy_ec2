@@ -319,7 +319,7 @@ class Securitygroups(object):
         self.securitygroups = dict((x.name, x) for x in self.server.conn.get_all_security_groups())
 
     def get(self, sgid, create=False):
-        if not 'ec2-securitygroup' in self.server.master.main_config:
+        if 'ec2-securitygroup' not in self.server.master.main_config:
             log.error("No security groups defined in configuration.")
             sys.exit(1)
         securitygroup = self.server.master.main_config['ec2-securitygroup'][sgid]
