@@ -151,7 +151,7 @@ class Instance(BaseInstance, StartupScriptMixin, InitSSHKeyMixin, ConnMixin):
         log.info("Instances private DNS name %s", instance.private_dns_name)
         log.info("Instances public DNS name %s", instance.public_dns_name)
         output = instance.get_console_output().output
-        if output.strip():
+        if output is None or output.strip():
             log.info("Console output available. SSH fingerprint verification possible.")
         else:
             log.warn("Console output not (yet) available. SSH fingerprint verification not possible.")
