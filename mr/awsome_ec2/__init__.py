@@ -87,6 +87,7 @@ class ConnMixin(object):
 
 class Instance(BaseInstance, StartupScriptMixin, InitSSHKeyMixin, ConnMixin):
     max_startup_script_size = 16 * 1024
+    sectiongroupname = 'ec2-instance'
 
     def get_massagers(self):
         return get_instance_massagers()
@@ -396,6 +397,7 @@ class Securitygroups(object):
 
 
 class Master(BaseMaster):
+    sectiongroupname = 'ec2-master'
     section_info = {
         None: Instance,
         'ec2-instance': Instance,
