@@ -4,6 +4,9 @@ Changelog
 1.0b2 - Unreleased
 ------------------
 
+* Renamed ``conn`` to ``ec2_conn`` to allow reuse of ``conn`` from BaseInstance.
+  [fschulze]
+
 * Moved setuptools-git from setup.py to .travis.yml, it's only needed for
   releases and testing.
   [fschulze]

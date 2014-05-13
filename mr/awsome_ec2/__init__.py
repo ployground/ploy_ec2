@@ -75,14 +75,14 @@ class InitSSHKeyMixin(object):
 
 class ConnMixin(object):
     @lazy
-    def conn(self):
+    def ec2_conn(self):
         region_id = self.config.get(
             'region',
             self.master.master_config.get('region', None))
         if region_id is None:
             log.error("No region set in ec2-instance:%s or ec2-master:%s config" % (self.id, self.master.id))
             sys.exit(1)
-        return self.master.get_conn(region_id)
+        return self.master.get_ec2_conn(region_id)
 
 
 class Instance(BaseInstance, StartupScriptMixin, InitSSHKeyMixin, ConnMixin):
@@ -95,7 +95,7 @@ class Instance(BaseInstance, StartupScriptMixin, InitSSHKeyMixin, ConnMixin):
     @lazy
     def instance(self):
         instances = []
-        for reservation in self.conn.get_all_instances():
+        for reservation in self.ec2_conn.get_all_instances():
             groups = set(x.name for x in reservation.groups)
             for instance in reservation.instances:
                 if instance.state in ['shutting-down', 'terminated']:
@@ -118,7 +118,7 @@ class Instance(BaseInstance, StartupScriptMixin, InitSSHKeyMixin, ConnMixin):
         return instance
 
     def image(self):
-        images = self.conn.get_all_images([self.config['image']])
+        images = self.ec2_conn.get_all_images([self.config['image']])
         return images[0]
 
     def securitygroups(self):
@@ -168,7 +168,7 @@ class Instance(BaseInstance, StartupScriptMixin, InitSSHKeyMixin, ConnMixin):
             log.info("Instance not stopped")
             return
         try:
-            rc = self.conn.stop_instances([instance.id])
+            rc = self.ec2_conn.stop_instances([instance.id])
             instance._update(rc[0])
         except EC2ResponseError, e:
             log.error(e.error_message)
@@ -190,11 +190,11 @@ class Instance(BaseInstance, StartupScriptMixin, InitSSHKeyMixin, ConnMixin):
         if 'snapshots' in self.config and self.config.get('delete-volumes-on-terminate', False):
             snapshots = self.master.snapshots
             volumes = dict((x.volume_id, d) for d, x in instance.block_device_mapping.items())
-            for volume in self.conn.get_all_volumes(volume_ids=volumes.keys()):
+            for volume in self.ec2_conn.get_all_volumes(volume_ids=volumes.keys()):
                 snapshot_id = volume.snapshot_id
                 if snapshot_id in snapshots:
                     volumes_to_delete.append(volume)
-        rc = self.conn.terminate_instances([instance.id])
+        rc = self.ec2_conn.terminate_instances([instance.id])
         instance._update(rc[0])
         log.info("Instance terminating")
         if len(volumes_to_delete):
@@ -248,10 +248,10 @@ class Instance(BaseInstance, StartupScriptMixin, InitSSHKeyMixin, ConnMixin):
             instance.update()
         sys.stdout.write("\n")
         sys.stdout.flush()
-        self.conn.create_tags([instance.id], {"Name": self.id})
+        self.ec2_conn.create_tags([instance.id], {"Name": self.id})
         ip = config.get('ip', None)
         if ip is not None:
-            addresses = [x for x in self.conn.get_all_addresses()
+            addresses = [x for x in self.ec2_conn.get_all_addresses()
                          if x.public_ip == ip]
             if len(addresses) > 0:
                 if addresses[0].instance_id != instance.id:
@@ -260,7 +260,7 @@ class Instance(BaseInstance, StartupScriptMixin, InitSSHKeyMixin, ConnMixin):
                     else:
                         log.error("Couldn't assign IP %s to instance '%s'", addresses[0].public_ip, self.id)
                         return
-        volumes = dict((x.id, x) for x in self.conn.get_all_volumes())
+        volumes = dict((x.id, x) for x in self.ec2_conn.get_all_volumes())
         for volume_id, device in config.get('volumes', []):
             if volume_id not in volumes:
                 log.error("Unknown volume %s" % volume_id)
@@ -269,18 +269,18 @@ class Instance(BaseInstance, StartupScriptMixin, InitSSHKeyMixin, ConnMixin):
             if volume.attachment_state() == 'attached':
                 continue
             log.info("Attaching storage (%s on %s)" % (volume_id, device))
-            self.conn.attach_volume(volume_id, instance.id, device)
+            self.ec2_conn.attach_volume(volume_id, instance.id, device)
 
-        snapshots = dict((x.id, x) for x in self.conn.get_all_snapshots(owner="self"))
+        snapshots = dict((x.id, x) for x in self.ec2_conn.get_all_snapshots(owner="self"))
         for snapshot_id, device in config.get('snapshots', []):
             if snapshot_id not in snapshots:
                 log.error("Unknown snapshot %s" % snapshot_id)
                 return
             log.info("Creating volume from snapshot: %s" % snapshot_id)
             snapshot = snapshots[snapshot_id]
-            volume = self.conn.create_volume(snapshot.volume_size, config['placement'], snapshot_id)
+            volume = self.ec2_conn.create_volume(snapshot.volume_size, config['placement'], snapshot_id)
             log.info("Attaching storage (%s on %s)" % (volume.id, device))
-            self.conn.attach_volume(volume.id, instance.id, device)
+            self.ec2_conn.attach_volume(volume.id, instance.id, device)
 
         return instance
 
@@ -290,7 +290,7 @@ class Instance(BaseInstance, StartupScriptMixin, InitSSHKeyMixin, ConnMixin):
         else:
             devs = set(devs)
         volume_ids = [x[0] for x in self.config.get('volumes', []) if x[1] in devs]
-        volumes = dict((x.id, x) for x in self.conn.get_all_volumes())
+        volumes = dict((x.id, x) for x in self.ec2_conn.get_all_volumes())
         for volume_id in volume_ids:
             volume = volumes[volume_id]
             date = datetime.datetime.now().strftime("%Y%m%d%H%M")
@@ -317,7 +317,7 @@ class Securitygroups(object):
         self.update()
 
     def update(self):
-        self.securitygroups = dict((x.name, x) for x in self.server.conn.get_all_security_groups())
+        self.securitygroups = dict((x.name, x) for x in self.server.ec2_conn.get_all_security_groups())
 
     def get(self, sgid, create=False):
         if 'ec2-securitygroup' not in self.server.master.main_config:
@@ -331,7 +331,7 @@ class Securitygroups(object):
                 description = securitygroup['description']
             else:
                 description = "security settings for %s" % sgid
-            sg = self.server.conn.create_security_group(sgid, description)
+            sg = self.server.ec2_conn.create_security_group(sgid, description)
             self.update()
         else:
             sg = self.securitygroups[sgid]
@@ -437,9 +437,9 @@ class Master(BaseMaster):
 
     @property
     def snapshots(self):
-        return dict((x.id, x) for x in self.conn.get_all_snapshots(owner="self"))
+        return dict((x.id, x) for x in self.ec2_conn.get_all_snapshots(owner="self"))
 
-    def get_conn(self, region_id):
+    def get_ec2_conn(self, region_id):
         (aws_id, aws_key) = self.credentials
         try:
             region = self.regions[region_id]
@@ -451,12 +451,12 @@ class Master(BaseMaster):
         )
 
     @lazy
-    def conn(self):
+    def ec2_conn(self):
         region_id = self.master_config.get('region', None)
         if region_id is None:
             log.error("No region set in ec2-master:%s config" % self.id)
             sys.exit(1)
-        return self.get_conn(region_id)
+        return self.get_ec2_conn(region_id)
 
 
 class SecuritygroupsMassager(BaseMassager):
