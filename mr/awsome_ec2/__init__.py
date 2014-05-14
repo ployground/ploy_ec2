@@ -523,7 +523,6 @@ class ConnectionsMassager(BaseMassager):
 def get_instance_massagers(sectiongroupname='instance'):
     return [
         HooksMassager(sectiongroupname, 'hooks'),
-        PathMassager(sectiongroupname, 'fabfile'),
         PathMassager(sectiongroupname, 'ssh-key-filename'),
         StartupScriptMassager(sectiongroupname, 'startup_script'),
         SecuritygroupsMassager(sectiongroupname, 'securitygroups'),
@@ -543,10 +542,6 @@ def get_massagers():
 
     sectiongroupname = 'ec2-instance'
     massagers.extend(get_instance_massagers(sectiongroupname))
-
-    sectiongroupname = 'ec2-connection'
-    massagers.extend([
-        PathMassager(sectiongroupname, 'fabfile')])
 
     sectiongroupname = 'ec2-securitygroup'
     massagers.extend([
