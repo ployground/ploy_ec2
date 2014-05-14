@@ -381,10 +381,10 @@ def test_instance_massagers():
     _write_config(directory, '\n'.join([
         '[instance:bar]',
         'master = default',
-        'fabfile = fabfile.py',
+        'startup_script = startup.sh',
         '[ec2-instance:ham]']))
     massagers = aws.instances['bar'].config.massagers
     assert massagers != {}
     assert aws.instances['bar'].config == {
-        'fabfile': os.path.join(directory, 'fabfile.py'),
+        'startup_script': {'path': os.path.join(directory, 'startup.sh')},
         'master': 'default'}
