@@ -1,7 +1,7 @@
 Changelog
 =========
 
-1.0b2 - Unreleased
+1.0b2 - 2014-05-15
 ------------------
 
 * Renamed ``conn`` to ``ec2_conn`` to allow reuse of ``conn`` from BaseInstance.
