@@ -378,6 +378,7 @@ def _write_config(directory, content):
 def test_instance_massagers():
     directory = tempfile.mkdtemp()
     aws = AWS(directory)
+    aws.configfile = os.path.join(directory, 'aws.conf')
     _write_config(directory, '\n'.join([
         '[instance:bar]',
         'master = default',
