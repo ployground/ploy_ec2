@@ -1,8 +1,8 @@
 from lazy import lazy
-from mr.awsome.common import BaseMaster, BaseInstance, StartupScriptMixin
-from mr.awsome.config import BaseMassager, BooleanMassager
-from mr.awsome.config import HooksMassager, PathMassager
-from mr.awsome.config import StartupScriptMassager
+from ploy.common import BaseMaster, BaseInstance, StartupScriptMixin
+from ploy.config import BaseMassager, BooleanMassager
+from ploy.config import HooksMassager, PathMassager
+from ploy.config import StartupScriptMassager
 import datetime
 import logging
 import os
@@ -10,7 +10,7 @@ import sys
 import time
 
 
-log = logging.getLogger('mr.awsome.ec2')
+log = logging.getLogger('ploy_ec2')
 
 
 class InitSSHKeyMixin(object):
@@ -559,10 +559,10 @@ def get_macro_cleaners(main_config):
     return {"ec2-instance": clean_instance}
 
 
-def get_masters(aws):
-    masters = aws.config.get('ec2-master', {})
+def get_masters(ctrl):
+    masters = ctrl.config.get('ec2-master', {})
     for master, master_config in masters.iteritems():
-        yield Master(aws, master, master_config)
+        yield Master(ctrl, master, master_config)
 
 
 plugin = dict(

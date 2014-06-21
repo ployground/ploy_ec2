@@ -11,22 +11,21 @@ version = "1.0b3"
 
 setup(
     version=version,
-    description="A plugin for mr.awsome providing integration with Amazon EC2.",
+    description="A plugin for ploy providing integration with Amazon EC2.",
     long_description=README + "\n\n",
-    name="mr.awsome.ec2",
+    name="ploy_ec2",
     author='Florian Schulze',
     author_email='florian.schulze@gmx.net',
-    url='http://github.com/fschulze/mr.awsome.ec2',
+    url='http://github.com/ployground/ploy_ec2',
     include_package_data=True,
     zip_safe=False,
-    packages=['mr'],
-    namespace_packages=['mr'],
+    packages=['ploy_ec2'],
     install_requires=[
         'setuptools',
-        'mr.awsome >= 1.0rc2',
+        'ploy >= 1.0rc9',
         'boto >= 2.0',
         'lazy'],
     entry_points="""
-        [mr.awsome.plugins]
-        ec2 = mr.awsome_ec2:plugin
+        [ploy.plugins]
+        ec2 = ploy_ec2:plugin
     """)

@@ -1,5 +1,5 @@
 from mock import patch
-from mr.awsome import AWS
+from ploy import Controller
 from unittest2 import skip, TestCase
 import os
 import tempfile
@@ -63,7 +63,7 @@ class MockRegion(object):
 class EC2SetupTests(TestCase):
     def setUp(self):
         self.directory = tempfile.mkdtemp()
-        self.aws = AWS(self.directory)
+        self.ctrl = Controller(self.directory)
         self._boto_ec2_regions_mock = patch("boto.ec2.regions")
         self.boto_ec2_regions_mock = self._boto_ec2_regions_mock.start()
 
@@ -74,16 +74,16 @@ class EC2SetupTests(TestCase):
         del self.directory
 
     def _write_config(self, content):
-        with open(os.path.join(self.directory, 'aws.conf'), 'w') as f:
+        with open(os.path.join(self.directory, 'ploy.conf'), 'w') as f:
             f.write(content)
 
     def testNoRegionSet(self):
         self._write_config('\n'.join([
             '[ec2-master:default]',
             '[ec2-instance:foo]']))
-        with patch('mr.awsome_ec2.log') as LogMock:
+        with patch('ploy_ec2.log') as LogMock:
             with self.assertRaises(SystemExit):
-                self.aws(['./bin/aws', 'status', 'foo'])
+                self.ctrl(['./bin/ploy', 'status', 'foo'])
         LogMock.error.assert_called_with('No region set in ec2-instance:foo or ec2-master:default config')
 
     def testNoAWSCredentialsSet(self):
@@ -91,9 +91,9 @@ class EC2SetupTests(TestCase):
             '[ec2-master:default]',
             'region = eu-west-1',
             '[ec2-instance:foo]']))
-        with patch('mr.awsome_ec2.log') as LogMock:
+        with patch('ploy_ec2.log') as LogMock:
             with self.assertRaises(SystemExit):
-                self.aws(['./bin/aws', 'status', 'foo'])
+                self.ctrl(['./bin/ploy', 'status', 'foo'])
         LogMock.error.assert_called_with("You need to either set the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables or add the path to files containing them to the config. You can find the values at http://aws.amazon.com under 'Your Account'-'Security Credentials'.")
 
     def testAWSCredentialKeyFileMissing(self):
@@ -105,9 +105,9 @@ class EC2SetupTests(TestCase):
             'access-key-id = %s' % key,
             'secret-access-key = %s' % secret,
             '[ec2-instance:foo]']))
-        with patch('mr.awsome_ec2.log') as LogMock:
+        with patch('ploy_ec2.log') as LogMock:
             with self.assertRaises(SystemExit):
-                self.aws(['./bin/aws', 'status', 'foo'])
+                self.ctrl(['./bin/ploy', 'status', 'foo'])
         LogMock.error.assert_called_with("The access-key-id file at '%s' doesn't exist.", key)
 
     def testAWSCredentialSecretFileMissing(self):
@@ -121,9 +121,9 @@ class EC2SetupTests(TestCase):
             'access-key-id = %s' % key,
             'secret-access-key = %s' % secret,
             '[ec2-instance:foo]']))
-        with patch('mr.awsome_ec2.log') as LogMock:
+        with patch('ploy_ec2.log') as LogMock:
             with self.assertRaises(SystemExit):
-                self.aws(['./bin/aws', 'status', 'foo'])
+                self.ctrl(['./bin/ploy', 'status', 'foo'])
         LogMock.error.assert_called_with("The secret-access-key file at '%s' doesn't exist.", secret)
 
     def testUnknownRegion(self):
@@ -140,9 +140,9 @@ class EC2SetupTests(TestCase):
             'secret-access-key = %s' % secret,
             '[ec2-instance:foo]']))
         self.boto_ec2_regions_mock.return_value = []
-        with patch('mr.awsome_ec2.log') as LogMock:
+        with patch('ploy_ec2.log') as LogMock:
             with self.assertRaises(SystemExit):
-                self.aws(['./bin/aws', 'status', 'foo'])
+                self.ctrl(['./bin/ploy', 'status', 'foo'])
         LogMock.error.assert_called_with("Region '%s' not found in regions returned by EC2.", 'eu-west-1')
 
     def testAWSKeysInEnvironment(self):
@@ -153,7 +153,7 @@ class EC2SetupTests(TestCase):
         region = MockRegion()
         region.name = 'eu-west-1'
         self.boto_ec2_regions_mock.return_value = [region]
-        with patch('mr.awsome_ec2.log') as LogMock:
+        with patch('ploy_ec2.log') as LogMock:
             if 'AWS_ACCESS_KEY_ID' in os.environ:  # pragma: no cover
                 del os.environ['AWS_ACCESS_KEY_ID']
             os.environ['AWS_ACCESS_KEY_ID'] = 'ham'
@@ -161,7 +161,7 @@ class EC2SetupTests(TestCase):
                 del os.environ['AWS_SECRET_ACCESS_KEY']
             os.environ['AWS_SECRET_ACCESS_KEY'] = 'egg'
             try:
-                self.aws(['./bin/aws', 'status', 'foo'])
+                self.ctrl(['./bin/ploy', 'status', 'foo'])
             except SystemExit:  # pragma: no cover - only if something is wrong
                 self.fail("SystemExit raised")
             finally:
@@ -177,7 +177,7 @@ class EC2SetupTests(TestCase):
 class EC2Tests(TestCase):
     def setUp(self):
         self.directory = tempfile.mkdtemp()
-        self.aws = AWS(self.directory)
+        self.ctrl = Controller(self.directory)
         self._boto_ec2_regions_mock = patch("boto.ec2.regions")
         self.boto_ec2_regions_mock = self._boto_ec2_regions_mock.start()
         try:  # pragma: no cover - we support both
@@ -213,7 +213,7 @@ class EC2Tests(TestCase):
         del self.directory
 
     def _write_config(self, content):
-        with open(os.path.join(self.directory, 'aws.conf'), 'w') as f:
+        with open(os.path.join(self.directory, 'ploy.conf'), 'w') as f:
             f.write('\n'.join([
                 '[ec2-master:default]',
                 'region = eu-west-1',
@@ -228,9 +228,9 @@ class EC2Tests(TestCase):
         region = MockRegion()
         region.name = 'eu-west-1'
         self.boto_ec2_regions_mock.return_value = [region]
-        with patch('mr.awsome_ec2.log') as LogMock:
+        with patch('ploy_ec2.log') as LogMock:
             try:
-                self.aws(['./bin/aws', 'status', 'foo'])
+                self.ctrl(['./bin/ploy', 'status', 'foo'])
             except SystemExit:  # pragma: no cover - only if something is wrong
                 self.fail("SystemExit raised")
         self.boto_ec2_regions_mock.assert_called_with(
@@ -254,9 +254,9 @@ class EC2Tests(TestCase):
         instance.id = 'i-12345678'
         reservation.instances.append(instance)
         self.boto_ec2_regions_mock.return_value = [region]
-        with patch('mr.awsome_ec2.log') as LogMock:
+        with patch('ploy_ec2.log') as LogMock:
             try:
-                self.aws(['./bin/aws', 'status', 'foo'])
+                self.ctrl(['./bin/ploy', 'status', 'foo'])
             except SystemExit:  # pragma: no cover - only if something is wrong
                 self.fail("SystemExit raised")
         self.boto_ec2_regions_mock.assert_called_with(
@@ -287,7 +287,7 @@ class EC2Tests(TestCase):
     #     self.boto_ec2_regions_mock.return_value = [region]
     #     with patch('sys.stderr') as StdErrMock:
     #         with self.assertRaises(SystemExit):
-    #             self.aws(['./bin/aws', 'status', 'foo'])
+    #             self.ctrl(['./bin/ploy', 'status', 'foo'])
     #     import pdb; pdb.set_trace( )
     #     output = "".join(x[0][0] for x in StdErrMock.write.call_args_list)
     #     self.assertIn("invalid choice: 'foo'", output)
@@ -297,7 +297,7 @@ class EC2Tests(TestCase):
     #         '[ec2-instance:foo]']))
     #     with patch('sys.stderr') as StdErrMock:
     #         with self.assertRaises(SystemExit):
-    #             self.aws(['./bin/aws', 'start', 'foo'])
+    #             self.ctrl(['./bin/ploy', 'start', 'foo'])
     #     output = "".join(x[0][0] for x in StdErrMock.write.call_args_list)
     #     self.assertIn("invalid choice: 'foo'", output)
     #
@@ -306,7 +306,7 @@ class EC2Tests(TestCase):
     #         '[ec2-instance:foo]']))
     #     with patch('sys.stderr') as StdErrMock:
     #         with self.assertRaises(SystemExit):
-    #             self.aws(['./bin/aws', 'stop', 'foo'])
+    #             self.ctrl(['./bin/ploy', 'stop', 'foo'])
     #     output = "".join(x[0][0] for x in StdErrMock.write.call_args_list)
     #     self.assertIn("invalid choice: 'foo'", output)
     #
@@ -315,16 +315,16 @@ class EC2Tests(TestCase):
     #         '[ec2-instance:foo]']))
     #     with patch('sys.stderr') as StdErrMock:
     #         with self.assertRaises(SystemExit):
-    #             self.aws(['./bin/aws', 'stop', 'foo'])
+    #             self.ctrl(['./bin/ploy', 'stop', 'foo'])
     #     output = "".join(x[0][0] for x in StdErrMock.write.call_args_list)
     #     self.assertIn("invalid choice: 'foo'", output)
     #
     # def testSSHWithNoHost(self):
     #     self._write_config('\n'.join([
     #         '[ec2-instance:foo]']))
-    #     with patch('mr.awsome.log') as LogMock:
+    #     with patch('ploy.log') as LogMock:
     #         with self.assertRaises(SystemExit):
-    #             self.aws(['./bin/aws', 'ssh', 'foo'])
+    #             self.ctrl(['./bin/ploy', 'ssh', 'foo'])
     #     self.assertEquals(
     #         LogMock.error.call_args_list, [
     #             (("Couldn't validate fingerprint for ssh connection.",), {}),
@@ -335,9 +335,9 @@ class EC2Tests(TestCase):
     #     self._write_config('\n'.join([
     #         '[ec2-instance:foo]',
     #         'host = localhost']))
-    #     with patch('mr.awsome.log') as LogMock:
+    #     with patch('ploy.log') as LogMock:
     #         with self.assertRaises(SystemExit):
-    #             self.aws(['./bin/aws', 'ssh', 'foo'])
+    #             self.ctrl(['./bin/ploy', 'ssh', 'foo'])
     #     self.assertEquals(
     #         LogMock.error.call_args_list, [
     #             (("Couldn't validate fingerprint for ssh connection.",), {}),
@@ -350,7 +350,7 @@ class EC2Tests(TestCase):
     #         'host = localhost',
     #         'fingerprint = foo']))
     #     try:
-    #         self.aws(['./bin/aws', 'ssh', 'foo'])
+    #         self.ctrl(['./bin/ploy', 'ssh', 'foo'])
     #     except SystemExit:
     #         self.fail("SystemExit raised")
     #     known_hosts = os.path.join(self.directory, 'known_hosts')
@@ -365,7 +365,7 @@ def _write_config(directory, content):
     secret = os.path.join(directory, 'secret')
     with open(secret, 'w') as f:
         f.write('egg')
-    with open(os.path.join(directory, 'aws.conf'), 'w') as f:
+    with open(os.path.join(directory, 'ploy.conf'), 'w') as f:
         f.write('\n'.join([
             '[ec2-master:default]',
             'region = eu-west-1',
@@ -377,15 +377,15 @@ def _write_config(directory, content):
 
 def test_instance_massagers():
     directory = tempfile.mkdtemp()
-    aws = AWS(directory)
-    aws.configfile = os.path.join(directory, 'aws.conf')
+    ctrl = Controller(directory)
+    ctrl.configfile = os.path.join(directory, 'ploy.conf')
     _write_config(directory, '\n'.join([
         '[instance:bar]',
         'master = default',
         'startup_script = startup.sh',
         '[ec2-instance:ham]']))
-    massagers = aws.instances['bar'].config.massagers
+    massagers = ctrl.instances['bar'].config.massagers
     assert massagers != {}
-    assert aws.instances['bar'].config == {
+    assert ctrl.instances['bar'].config == {
         'startup_script': {'path': os.path.join(directory, 'startup.sh')},
         'master': 'default'}
