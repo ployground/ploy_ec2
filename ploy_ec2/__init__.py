@@ -3,6 +3,7 @@ from ploy.common import BaseMaster, BaseInstance, StartupScriptMixin
 from ploy.config import BaseMassager, BooleanMassager
 from ploy.config import HooksMassager, PathMassager
 from ploy.config import StartupScriptMassager
+import argparse
 import datetime
 import logging
 import os
@@ -520,6 +521,26 @@ class ConnectionsMassager(BaseMassager):
         return tuple(connections)
 
 
+class ListSnapshotsCmd(object):
+
+    def __init__(self, ctrl):
+        self.ctrl = ctrl
+
+    def __call__(self, argv, help):
+        parser = argparse.ArgumentParser(
+            prog="%s list snapshots" % self.ctrl.progname,
+            description=help)
+        parser.parse_args(argv)
+        snapshots = []
+        for master in self.ctrl.get_masters('snapshots'):
+            snapshots.extend(master.snapshots.values())
+        snapshots = sorted(snapshots, key=lambda x: x.start_time)
+        print "id            time                      size   volume       progress description"
+        for snapshot in snapshots:
+            info = snapshot.__dict__
+            print "{id} {start_time} {volume_size:>4} GB {volume_id} {progress:>8} {description}".format(**info)
+
+
 def get_instance_massagers(sectiongroupname='instance'):
     return [
         HooksMassager(sectiongroupname, 'hooks'),
@@ -530,6 +551,11 @@ def get_instance_massagers(sectiongroupname='instance'):
         DevicemapMassager(sectiongroupname, 'device_map'),
         SnapshotsMassager(sectiongroupname, 'snapshots'),
         BooleanMassager(sectiongroupname, 'delete-volumes-on-terminate')]
+
+
+def get_list_commands(ctrl):
+    return [
+        ('snapshots', ListSnapshotsCmd(ctrl))]
 
 
 def get_massagers():
@@ -566,6 +592,7 @@ def get_masters(ctrl):
 
 
 plugin = dict(
+    get_list_commands=get_list_commands,
     get_massagers=get_massagers,
     get_macro_cleaners=get_macro_cleaners,
     get_masters=get_masters)
