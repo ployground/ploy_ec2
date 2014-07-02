@@ -16,13 +16,7 @@ log = logging.getLogger('ploy_ec2')
 
 class InitSSHKeyMixin(object):
     def init_ssh_key(self, user=None):
-        try:  # pragma: no cover - we support both
-            import paramiko
-            paramiko  # shutup pyflakes
-        except ImportError:  # pragma: no cover - we support both
-            import ssh as paramiko
-
-        class AWSHostKeyPolicy(paramiko.MissingHostKeyPolicy):
+        class AWSHostKeyPolicy(self.instance.paramiko.MissingHostKeyPolicy):
             def __init__(self, instance):
                 self.instance = instance
 
@@ -31,13 +25,13 @@ class InitSSHKeyMixin(object):
                 if self.instance.public_dns_name == hostname:
                     output = self.instance.get_console_output().output
                     if output is None or output.strip() == '':
-                        raise paramiko.SSHException('No console output (yet) for %s' % hostname)
+                        raise self.instance.paramiko.SSHException('No console output (yet) for %s' % hostname)
                     if fingerprint in output:
                         client._host_keys.add(hostname, key.get_name(), key)
                         if client._host_keys_filename is not None:
                             client.save_host_keys(client._host_keys_filename)
                         return
-                raise paramiko.SSHException('Unknown server %s' % hostname)
+                raise self.instance.paramiko.SSHException('Unknown server %s' % hostname)
 
         instance = self.instance
         if instance is None:
@@ -47,7 +41,7 @@ class InitSSHKeyMixin(object):
             user = 'root'
         host = str(instance.public_dns_name)
         port = 22
-        client = paramiko.SSHClient()
+        client = instance.paramiko.SSHClient()
         client.set_missing_host_key_policy(AWSHostKeyPolicy(instance))
         client_args = dict(
             port=int(port),
@@ -60,7 +54,7 @@ class InitSSHKeyMixin(object):
             try:
                 client.connect(host, **client_args)
                 break
-            except paramiko.BadHostKeyException:
+            except instance.paramiko.BadHostKeyException:
                 if os.path.exists(known_hosts):
                     os.remove(known_hosts)
                     open(known_hosts, 'w').close()
@@ -171,7 +165,7 @@ class Instance(BaseInstance, StartupScriptMixin, InitSSHKeyMixin, ConnMixin):
         try:
             rc = self.ec2_conn.stop_instances([instance.id])
             instance._update(rc[0])
-        except EC2ResponseError, e:
+        except EC2ResponseError as e:
             log.error(e.error_message)
             if 'cannot be stopped' in e.error_message:
                 log.error("Did you mean to terminate the instance?")
