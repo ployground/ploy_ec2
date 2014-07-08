@@ -1,8 +1,11 @@
 Changelog
 =========
 
-1.0b3 - unreleased
+1.0b3 - 2014-07-08
 ------------------
+
+* Moved ``snapshots`` list command here after ploy enabled it.
+  [fschulze]
 
 * Renamed mr.awsome to ploy and mr.awsome.ec2 to ploy_ec2.
   [fschulze]
