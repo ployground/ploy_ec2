@@ -4,6 +4,8 @@ Changelog
 1.0b4 - Unreleased
 ------------------
 
+* Fix confusion between instance from ploy and ec2 instance.
+  [fschulze]
 
 
 1.0b3 - 2014-07-08

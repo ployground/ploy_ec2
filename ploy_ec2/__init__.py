@@ -16,33 +16,35 @@ log = logging.getLogger('ploy_ec2')
 
 class InitSSHKeyMixin(object):
     def init_ssh_key(self, user=None):
-        class AWSHostKeyPolicy(self.instance.paramiko.MissingHostKeyPolicy):
-            def __init__(self, instance):
-                self.instance = instance
+        paramiko = self.paramiko
+
+        class AWSHostKeyPolicy(paramiko.MissingHostKeyPolicy):
+            def __init__(self, ec2_instance):
+                self.ec2_instance = ec2_instance
 
             def missing_host_key(self, client, hostname, key):
                 fingerprint = ':'.join("%02x" % ord(x) for x in key.get_fingerprint())
-                if self.instance.public_dns_name == hostname:
-                    output = self.instance.get_console_output().output
+                if self.ec2_instance.public_dns_name == hostname:
+                    output = self.ec2_instance.get_console_output().output
                     if output is None or output.strip() == '':
-                        raise self.instance.paramiko.SSHException('No console output (yet) for %s' % hostname)
+                        raise paramiko.SSHException('No console output (yet) for %s' % hostname)
                     if fingerprint in output:
                         client._host_keys.add(hostname, key.get_name(), key)
                         if client._host_keys_filename is not None:
                             client.save_host_keys(client._host_keys_filename)
                         return
-                raise self.instance.paramiko.SSHException('Unknown server %s' % hostname)
+                raise paramiko.SSHException('Unknown server %s' % hostname)
 
-        instance = self.instance
-        if instance is None:
+        ec2_instance = self.ec2_instance
+        if ec2_instance is None:
             log.error("Can't establish ssh connection.")
             return
         if user is None:
             user = 'root'
-        host = str(instance.public_dns_name)
+        host = str(ec2_instance.public_dns_name)
         port = 22
-        client = instance.paramiko.SSHClient()
-        client.set_missing_host_key_policy(AWSHostKeyPolicy(instance))
+        client = paramiko.SSHClient()
+        client.set_missing_host_key_policy(AWSHostKeyPolicy(ec2_instance))
         client_args = dict(
             port=int(port),
             username=user,
@@ -54,7 +56,7 @@ class InitSSHKeyMixin(object):
             try:
                 client.connect(host, **client_args)
                 break
-            except instance.paramiko.BadHostKeyException:
+            except paramiko.BadHostKeyException:
                 if os.path.exists(known_hosts):
                     os.remove(known_hosts)
                     open(known_hosts, 'w').close()
@@ -88,29 +90,29 @@ class Instance(BaseInstance, StartupScriptMixin, InitSSHKeyMixin, ConnMixin):
         return get_instance_massagers()
 
     @lazy
-    def instance(self):
-        instances = []
+    def ec2_instance(self):
+        ec2_instances = []
         for reservation in self.ec2_conn.get_all_instances():
             groups = set(x.name for x in reservation.groups)
-            for instance in reservation.instances:
-                if instance.state in ['shutting-down', 'terminated']:
+            for ec2_instance in reservation.instances:
+                if ec2_instance.state in ['shutting-down', 'terminated']:
                     continue
-                tags = getattr(instance, 'tags', {})
+                tags = getattr(ec2_instance, 'tags', {})
                 if not tags or not tags.get('Name'):
                     if groups != self.config['securitygroups']:
                         continue
                 else:
                     if tags['Name'] != self.id:
                         continue
-                instances.append(instance)
-        if len(instances) < 1:
+                ec2_instances.append(ec2_instance)
+        if len(ec2_instances) < 1:
             log.info("Instance '%s' unavailable.", self.id)
             return
-        elif len(instances) > 1:
+        elif len(ec2_instances) > 1:
             log.warn("More than one instance found, using first.")
-        instance = instances[0]
-        log.info("Instance '%s' (%s) available.", self.id, instance.id)
-        return instance
+        ec2_instance = ec2_instances[0]
+        log.info("Instance '%s' (%s) available.", self.id, ec2_instance.id)
+        return ec2_instance
 
     def image(self):
         images = self.ec2_conn.get_all_images([self.config['image']])
@@ -126,27 +128,27 @@ class Instance(BaseInstance, StartupScriptMixin, InitSSHKeyMixin, ConnMixin):
         return sgs
 
     def get_host(self):
-        return self.instance.public_dns_name
+        return self.ec2_instance.public_dns_name
 
     def _status(self):
-        instance = self.instance
-        if instance is None:
+        ec2_instance = self.ec2_instance
+        if ec2_instance is None:
             return 'unavailable'
-        return instance.state
+        return ec2_instance.state
 
     def status(self):
-        instance = self.instance
-        if instance is None:
+        ec2_instance = self.ec2_instance
+        if ec2_instance is None:
             return
         status = self._status()
         if status != 'running':
             log.info("Instance state: %s", status)
             return
         log.info("Instance running.")
-        log.info("Instances DNS name %s", instance.dns_name)
-        log.info("Instances private DNS name %s", instance.private_dns_name)
-        log.info("Instances public DNS name %s", instance.public_dns_name)
-        output = instance.get_console_output().output
+        log.info("Instances DNS name %s", ec2_instance.dns_name)
+        log.info("Instances private DNS name %s", ec2_instance.private_dns_name)
+        log.info("Instances public DNS name %s", ec2_instance.public_dns_name)
+        output = ec2_instance.get_console_output().output
         if output is None or output.strip():
             log.info("Console output available. SSH fingerprint verification possible.")
         else:
@@ -155,16 +157,16 @@ class Instance(BaseInstance, StartupScriptMixin, InitSSHKeyMixin, ConnMixin):
     def stop(self):
         from boto.exception import EC2ResponseError
 
-        instance = self.instance
-        if instance is None:
+        ec2_instance = self.ec2_instance
+        if ec2_instance is None:
             return
-        if instance.state != 'running':
-            log.info("Instance state: %s", instance.state)
+        if ec2_instance.state != 'running':
+            log.info("Instance state: %s", ec2_instance.state)
             log.info("Instance not stopped")
             return
         try:
-            rc = self.ec2_conn.stop_instances([instance.id])
-            instance._update(rc[0])
+            rc = self.ec2_conn.stop_instances([ec2_instance.id])
+            ec2_instance._update(rc[0])
         except EC2ResponseError as e:
             log.error(e.error_message)
             if 'cannot be stopped' in e.error_message:
@@ -174,31 +176,31 @@ class Instance(BaseInstance, StartupScriptMixin, InitSSHKeyMixin, ConnMixin):
         log.info("Instance stopped")
 
     def terminate(self):
-        instance = self.instance
-        if instance is None:
+        ec2_instance = self.ec2_instance
+        if ec2_instance is None:
             return
-        if instance.state not in ('running', 'stopped'):
-            log.info("Instance state: %s", instance.state)
+        if ec2_instance.state not in ('running', 'stopped'):
+            log.info("Instance state: %s", ec2_instance.state)
             log.info("Instance not terminated")
             return
         volumes_to_delete = []
         if 'snapshots' in self.config and self.config.get('delete-volumes-on-terminate', False):
             snapshots = self.master.snapshots
-            volumes = dict((x.volume_id, d) for d, x in instance.block_device_mapping.items())
+            volumes = dict((x.volume_id, d) for d, x in ec2_instance.block_device_mapping.items())
             for volume in self.ec2_conn.get_all_volumes(volume_ids=volumes.keys()):
                 snapshot_id = volume.snapshot_id
                 if snapshot_id in snapshots:
                     volumes_to_delete.append(volume)
-        rc = self.ec2_conn.terminate_instances([instance.id])
-        instance._update(rc[0])
+        rc = self.ec2_conn.terminate_instances([ec2_instance.id])
+        ec2_instance._update(rc[0])
         log.info("Instance terminating")
         if len(volumes_to_delete):
             log.info("Instance terminating, waiting until it's terminated")
-            while instance.state != 'terminated':
+            while ec2_instance.state != 'terminated':
                 time.sleep(5)
                 sys.stdout.write(".")
                 sys.stdout.flush()
-                instance.update()
+                ec2_instance.update()
             sys.stdout.write("\n")
             sys.stdout.flush()
             log.info("Instance terminated")
@@ -208,17 +210,17 @@ class Instance(BaseInstance, StartupScriptMixin, InitSSHKeyMixin, ConnMixin):
 
     def start(self, overrides=None):
         config = self.get_config(overrides)
-        instance = self.instance
-        if instance is not None:
-            log.info("Instance state: %s", instance.state)
-            if instance.state == 'stopping':
+        ec2_instance = self.ec2_instance
+        if ec2_instance is not None:
+            log.info("Instance state: %s", ec2_instance.state)
+            if ec2_instance.state == 'stopping':
                 log.info("The instance is currently stopping")
                 return
-            if instance.state == 'stopped':
+            if ec2_instance.state == 'stopped':
                 log.info("Starting stopped instance '%s'" % self.id)
-                instance.modify_attribute('instanceType', config.get('instance_type', 'm1.small'))
-                instance.modify_attribute('blockDeviceMapping', config.get('device_map', None))
-                instance.start()
+                ec2_instance.modify_attribute('instanceType', config.get('instance_type', 'm1.small'))
+                ec2_instance.modify_attribute('blockDeviceMapping', config.get('device_map', None))
+                ec2_instance.start()
             else:
                 log.info("Instance already started, waiting until it's available")
         else:
@@ -231,26 +233,26 @@ class Instance(BaseInstance, StartupScriptMixin, InitSSHKeyMixin, ConnMixin):
                 user_data=self.startup_script(overrides=overrides),
                 placement=config['placement']
             )
-            instance = reservation.instances[0]
+            ec2_instance = reservation.instances[0]
             log.info("Instance created, waiting until it's available")
-        while instance.state != 'running':
-            if instance.state != 'pending':
-                log.error("Something went wrong, instance status: %s", instance.state)
+        while ec2_instance.state != 'running':
+            if ec2_instance.state != 'pending':
+                log.error("Something went wrong, instance status: %s", ec2_instance.state)
                 return
             time.sleep(5)
             sys.stdout.write(".")
             sys.stdout.flush()
-            instance.update()
+            ec2_instance.update()
         sys.stdout.write("\n")
         sys.stdout.flush()
-        self.ec2_conn.create_tags([instance.id], {"Name": self.id})
+        self.ec2_conn.create_tags([ec2_instance.id], {"Name": self.id})
         ip = config.get('ip', None)
         if ip is not None:
             addresses = [x for x in self.ec2_conn.get_all_addresses()
                          if x.public_ip == ip]
             if len(addresses) > 0:
-                if addresses[0].instance_id != instance.id:
-                    if instance.use_ip(addresses[0]):
+                if addresses[0].instance_id != ec2_instance.id:
+                    if ec2_instance.use_ip(addresses[0]):
                         log.info("Assigned IP %s to instance '%s'", addresses[0].public_ip, self.id)
                     else:
                         log.error("Couldn't assign IP %s to instance '%s'", addresses[0].public_ip, self.id)
@@ -264,7 +266,7 @@ class Instance(BaseInstance, StartupScriptMixin, InitSSHKeyMixin, ConnMixin):
             if volume.attachment_state() == 'attached':
                 continue
             log.info("Attaching storage (%s on %s)" % (volume_id, device))
-            self.ec2_conn.attach_volume(volume_id, instance.id, device)
+            self.ec2_conn.attach_volume(volume_id, ec2_instance.id, device)
 
         snapshots = dict((x.id, x) for x in self.ec2_conn.get_all_snapshots(owner="self"))
         for snapshot_id, device in config.get('snapshots', []):
@@ -275,9 +277,9 @@ class Instance(BaseInstance, StartupScriptMixin, InitSSHKeyMixin, ConnMixin):
             snapshot = snapshots[snapshot_id]
             volume = self.ec2_conn.create_volume(snapshot.volume_size, config['placement'], snapshot_id)
             log.info("Attaching storage (%s on %s)" % (volume.id, device))
-            self.ec2_conn.attach_volume(volume.id, instance.id, device)
+            self.ec2_conn.attach_volume(volume.id, ec2_instance.id, device)
 
-        return instance
+        return ec2_instance
 
     def snapshot(self, devs=None):
         if devs is None:
