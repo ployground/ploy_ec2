@@ -1,7 +1,7 @@
 Changelog
 =========
 
-1.0b4 - Unreleased
+1.0b4 - 2014-07-15
 ------------------
 
 * Fix confusion between instance from ploy and ec2 instance.
