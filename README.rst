@@ -12,8 +12,6 @@ Installation
 
 ploy_ec2 is best installed with easy_install, pip or with zc.recipe.egg in a buildout.
 
-Once installed, it's functionality is immediately usable with ploy.
-
 
 Masters
 =======
