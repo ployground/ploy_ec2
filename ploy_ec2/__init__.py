@@ -29,7 +29,7 @@ class InitSSHKeyMixin(object):
                     if output is None or output.strip() == '':
                         raise paramiko.SSHException('No console output (yet) for %s' % hostname)
                     if fingerprint in output:
-                        client._host_keys.add(hostname, key.get_name(), key)
+                        client.get_host_keys().add(hostname, key.get_name(), key)
                         if client._host_keys_filename is not None:
                             client.save_host_keys(client._host_keys_filename)
                         return
