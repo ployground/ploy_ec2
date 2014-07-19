@@ -73,6 +73,7 @@ Securitygroups
 ``description``
 
 ``connections``
+  ::
 
     [ec2-securitygroup:app-server]
     description = The production server
@@ -90,7 +91,7 @@ For instances the ``ip`` and ``volumes`` options aren't copied when expanding ma
 Changelog
 =========
 
-1.0b5 - Unreleased
+1.0.0 - 2014-07-19
 ------------------
 
 * Added documentation.
