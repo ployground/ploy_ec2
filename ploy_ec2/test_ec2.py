@@ -248,10 +248,10 @@ class EC2Tests(TestCase):
         region = MockRegion()
         region.name = 'eu-west-1'
         reservation = MockReservation()
-        reservation.groups = [MockSecuritygroup('foo')]
         region.connection.reservations.append(reservation)
         instance = MockInstance()
         instance.id = 'i-12345678'
+        instance.groups = [MockSecuritygroup('foo')]
         reservation.instances.append(instance)
         self.boto_ec2_regions_mock.return_value = [region]
         with patch('ploy_ec2.log') as LogMock:

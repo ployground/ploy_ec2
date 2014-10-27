@@ -93,12 +93,12 @@ class Instance(BaseInstance, StartupScriptMixin, InitSSHKeyMixin, ConnMixin):
     def ec2_instance(self):
         ec2_instances = []
         for reservation in self.ec2_conn.get_all_instances():
-            groups = set(x.name for x in reservation.groups)
             for ec2_instance in reservation.instances:
                 if ec2_instance.state in ['shutting-down', 'terminated']:
                     continue
                 tags = getattr(ec2_instance, 'tags', {})
                 if not tags or not tags.get('Name'):
+                    groups = set(x.name for x in ec2_instance.groups)
                     if groups != self.config['securitygroups']:
                         continue
                 else:
@@ -393,12 +393,54 @@ class Securitygroups(object):
         return sg
 
 
+class MasterConnection(BaseInstance, ConnMixin):
+    def status(self):
+        instances = {}
+        known = {}
+        unknown = set()
+        for reservation in self.ec2_conn.get_all_instances():
+            for ec2_instance in reservation.instances:
+                instance = instances.setdefault(ec2_instance.id, {})
+                instance['id'] = ec2_instance.id
+                instance['status'] = ec2_instance.state
+                instance['ip'] = ec2_instance.ip_address
+                tags = getattr(ec2_instance, 'tags', {})
+                name = instance['name'] = tags['Name']
+                if name in self.master.ctrl.instances:
+                    known[name] = ec2_instance.id
+                else:
+                    unknown.add(ec2_instance.id)
+        for name in sorted(self.master.instances):
+            if name == self.id:
+                continue
+            if name in known:
+                instance = instances[known[name]]
+            else:
+                instance = dict(
+                    id='n/a',
+                    status='terminated',
+                    name=name,
+                    ip=self.master.instances[name].config.get('ip'))
+            log.info("%-10s %-20s %15s %15s" % (instance['id'], instance['name'], instance['status'], instance['ip']))
+        if unknown:
+            log.warn("Unknown instances:")
+            for iid in unknown:
+                instance = instances[iid]
+                log.warn("%-10s %-20s %15s %15s" % (iid, instance['name'], instance['status'], instance['ip']))
+
+
 class Master(BaseMaster):
     sectiongroupname = 'ec2-master'
     section_info = {
         None: Instance,
         'ec2-instance': Instance,
         'ec2-connection': Connection}
+
+    def __init__(self, *args, **kwargs):
+        BaseMaster.__init__(self, *args, **kwargs)
+        self.instance = MasterConnection(self, self.id, self.master_config)
+        self.instance.sectiongroupname = 'ez-master'
+        self.instances[self.id] = self.instance
 
     @lazy
     def credentials(self):

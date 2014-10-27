@@ -1,9 +1,11 @@
 Changelog
 =========
 
-1.0.1 - Unreleased
+1.1.0 - Unreleased
 ------------------
 
+* Print status of all ec2 instances when requesting status of master.
+  [fschulze]
 
 
 1.0.0 - 2014-07-19
