@@ -31,7 +31,7 @@ setup(
     packages=['ploy_ec2'],
     install_requires=[
         'setuptools',
-        'ploy >= 1.0.0',
+        'ploy >= 1.0.0, < 2dev',
         'boto >= 2.0',
         'lazy'],
     entry_points="""
