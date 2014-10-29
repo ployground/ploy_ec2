@@ -149,10 +149,10 @@ class Instance(BaseInstance, StartupScriptMixin, InitSSHKeyMixin, ConnMixin):
         log.info("Instances private DNS name %s", ec2_instance.private_dns_name)
         log.info("Instances public DNS name %s", ec2_instance.public_dns_name)
         output = ec2_instance.get_console_output().output
-        if output is None or output.strip():
-            log.info("Console output available. SSH fingerprint verification possible.")
-        else:
+        if output is None or output.strip() == '':
             log.warn("Console output not (yet) available. SSH fingerprint verification not possible.")
+        else:
+            log.info("Console output available. SSH fingerprint verification possible.")
 
     def stop(self):
         from boto.exception import EC2ResponseError

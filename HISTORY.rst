@@ -4,6 +4,9 @@ Changelog
 1.1.1 - Unreleased
 ------------------
 
+* Fixed console output availability test for the status command.
+  [fschulze]
+
 * There can be multiple instances for the same name if they were quickly started
   and stopped. Handle that case when requesting status of master.
   [fschulze]
