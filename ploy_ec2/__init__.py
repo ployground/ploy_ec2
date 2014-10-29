@@ -33,6 +33,8 @@ class InitSSHKeyMixin(object):
                         if client._host_keys_filename is not None:
                             client.save_host_keys(client._host_keys_filename)
                         return
+                    else:
+                        raise paramiko.SSHException('Fingerprint not in console output of %s' % hostname)
                 raise paramiko.SSHException('Unknown server %s' % hostname)
 
         ec2_instance = self.ec2_instance

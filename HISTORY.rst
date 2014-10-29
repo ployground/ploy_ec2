@@ -7,6 +7,9 @@ Changelog
 * Fixed console output availability test for the status command.
   [fschulze]
 
+* Better error message if fingerprint isn't in console output.
+  [fschulze]
+
 * There can be multiple instances for the same name if they were quickly started
   and stopped. Handle that case when requesting status of master.
   [fschulze]
