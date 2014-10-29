@@ -86,3 +86,21 @@ Macro expansion
 ===============
 
 For instances the ``ip`` and ``volumes`` options aren't copied when expanding macros.
+
+
+Fingerprint verification
+========================
+
+Automatic ssh fingerprint verification works by checking whether the fingerprint is in the console output of the instance.
+
+After reboot or stop/start of an instance, the console output is refreshed.
+The problem with that is, that the fingerprint isn't included in the console anymore by default.
+To fix that you need to log the fingerprint on reboot somehow.
+One way to do that with Ubuntu is to add a script at ``/var/lib/cloud/scripts/per-boot/ssh-keys`` with this content:
+
+.. code-block:: sh
+
+    #!/bin/sh
+    /usr/bin/ssh-keygen -l -f /etc/ssh/ssh_host_rsa_key.pub
+
+Make sure that script is executable.
