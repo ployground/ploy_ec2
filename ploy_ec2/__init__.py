@@ -407,21 +407,22 @@ class MasterConnection(BaseInstance, ConnMixin):
                 tags = getattr(ec2_instance, 'tags', {})
                 name = instance['name'] = tags['Name']
                 if name in self.master.ctrl.instances:
-                    known[name] = ec2_instance.id
+                    known.setdefault(name, set()).add(ec2_instance.id)
                 else:
                     unknown.add(ec2_instance.id)
         for name in sorted(self.master.instances):
             if name == self.id:
                 continue
             if name in known:
-                instance = instances[known[name]]
+                infos = [instances[x] for x in known[name]]
             else:
-                instance = dict(
+                infos = [dict(
                     id='n/a',
                     status='terminated',
                     name=name,
-                    ip=self.master.instances[name].config.get('ip'))
-            log.info("%-10s %-20s %15s %15s" % (instance['id'], instance['name'], instance['status'], instance['ip']))
+                    ip=self.master.instances[name].config.get('ip'))]
+            for info in infos:
+                log.info("%-10s %-20s %15s %15s" % (info['id'], info['name'], info['status'], info['ip']))
         if unknown:
             log.warn("Unknown instances:")
             for iid in unknown:

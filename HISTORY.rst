@@ -4,6 +4,9 @@ Changelog
 1.1.1 - Unreleased
 ------------------
 
+* There can be multiple instances for the same name if they were quickly started
+  and stopped. Handle that case when requesting status of master.
+  [fschulze]
 
 
 1.1.0 - 2014-10-27
