@@ -221,7 +221,8 @@ class Instance(BaseInstance, StartupScriptMixin, InitSSHKeyMixin, ConnMixin):
             if ec2_instance.state == 'stopped':
                 log.info("Starting stopped instance '%s'" % self.id)
                 ec2_instance.modify_attribute('instanceType', config.get('instance_type', 'm1.small'))
-                ec2_instance.modify_attribute('blockDeviceMapping', config.get('device_map', None))
+                if 'device_map' in config:
+                    ec2_instance.modify_attribute('blockDeviceMapping', config.get('device_map', None))
                 ec2_instance.start()
             else:
                 log.info("Instance already started, waiting until it's available")

@@ -4,6 +4,10 @@ Changelog
 1.1.1 - Unreleased
 ------------------
 
+* Only set device_map if it's in the config, the previous ``None`` default
+  didn't always work.
+  [fschulze]
+
 * Fixed console output availability test for the status command.
   [fschulze]
 
