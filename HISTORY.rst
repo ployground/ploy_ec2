@@ -1,7 +1,7 @@
 Changelog
 =========
 
-1.1.1 - Unreleased
+1.1.1 - 2015-01-22
 ------------------
 
 * Only set device_map if it's in the config, the previous ``None`` default
