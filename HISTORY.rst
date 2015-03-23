@@ -4,6 +4,9 @@ Changelog
 1.1.2 - Unreleased
 ------------------
 
+* Fix support of console output for the ``ploy debug -c`` command.
+  [fschulze]
+
 * Reuse init_ssh_key from ploy.plain to get way more options and error checking.
   [fschulze]
 

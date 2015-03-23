@@ -64,6 +64,9 @@ class Instance(BaseInstance, StartupScriptMixin, ConnMixin):
     def get_massagers(self):
         return get_instance_massagers()
 
+    def get_console_output(self):
+        return self.ec2_instance.get_console_output().output
+
     def get_fingerprints(self):
         output = self.ec2_instance.get_console_output().output
         if output is None or output.strip() == '':
