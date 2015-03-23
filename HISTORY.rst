@@ -4,6 +4,8 @@ Changelog
 1.1.2 - Unreleased
 ------------------
 
+* Reuse init_ssh_key from ploy.plain to get way more options and error checking.
+  [fschulze]
 
 
 1.1.1 - 2015-01-22

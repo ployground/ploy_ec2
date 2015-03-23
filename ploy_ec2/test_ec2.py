@@ -389,3 +389,50 @@ def test_instance_massagers():
     assert ctrl.instances['bar'].config == {
         'startup_script': {'path': os.path.join(directory, 'startup.sh')},
         'master': 'default'}
+
+
+def test_get_fingerprints():
+    from ploy_ec2 import get_fingerprints
+    import textwrap
+    data = textwrap.dedent("""
+        ec2: -----BEGIN SSH HOST KEY FINGERPRINTS-----
+        ec2: 2048 a6:7f:6a:a5:8a:7c:26:45:46:ca:d9:d9:8c:f2:64:27 /etc/ssh/ssh_host_key.pub
+        ec2: 2048 b6:57:b7:52:4e:36:94:ab:9c:ec:a1:b3:56:71:80:e0 /etc/ssh/ssh_host_rsa_key.pub
+        ec2: 1024 62:47:49:82:83:9a:d8:1d:b8:c6:8f:dd:4d:d8:9a:2e /etc/ssh/ssh_host_dsa_key.pub
+        ec2: -----END SSH HOST KEY FINGERPRINTS-----
+        """)
+    result = get_fingerprints(data)
+    assert result == [
+        dict(keylen=1024, keytype='dsa', fingerprint='62:47:49:82:83:9a:d8:1d:b8:c6:8f:dd:4d:d8:9a:2e'),
+        dict(keylen=2048, keytype='rsa1', fingerprint='a6:7f:6a:a5:8a:7c:26:45:46:ca:d9:d9:8c:f2:64:27'),
+        dict(keylen=2048, keytype='rsa', fingerprint='b6:57:b7:52:4e:36:94:ab:9c:ec:a1:b3:56:71:80:e0')]
+
+    data = textwrap.dedent("""
+        -----BEGIN SSH HOST KEY FINGERPRINTS-----
+        2048 2e:68:49:26:49:07:67:31:f1:33:92:18:09:c3:6a:ae /etc/ssh/ssh_host_rsa_key.pub (RSA)
+        1024 4b:99:0e:4a:a4:3e:b4:e5:ef:42:5e:43:07:93:91:a0 /etc/ssh/ssh_host_dsa_key.pub (DSA)
+        -----END SSH HOST KEY FINGERPRINTS-----
+        """)
+    result = get_fingerprints(data)
+    assert result == [
+        dict(keylen=2048, keytype='rsa', fingerprint='2e:68:49:26:49:07:67:31:f1:33:92:18:09:c3:6a:ae'),
+        dict(keylen=1024, keytype='dsa', fingerprint='4b:99:0e:4a:a4:3e:b4:e5:ef:42:5e:43:07:93:91:a0')]
+
+    data = textwrap.dedent("""
+        ec2: #############################################################
+        ec2: -----BEGIN SSH HOST KEY FINGERPRINTS-----
+        ec2: 1024 7b:0d:a3:0d:9e:fc:f3:97:bb:a8:d2:1d:05:3f:d5:f9  root@ip-172-31-27-225 (DSA)
+        ec2: 256 96:c6:3c:47:7b:11:eb:8a:ca:78:ed:20:d6:21:f2:b7  root@ip-172-31-27-225 (ECDSA)
+        ec2: 256 56:0f:1a:4d:cc:66:0a:9e:90:d5:1d:98:3a:03:ef:b6  root@ip-172-31-27-225 (ED25519)
+        ec2: 2048 b6:8a:43:51:72:af:49:88:a5:d6:c5:7f:3c:fd:91:70  root@ip-172-31-27-225 (RSA1)
+        ec2: 2048 ef:85:3d:e6:ab:c4:18:88:81:63:08:0f:32:8a:9d:e0  root@ip-172-31-27-225 (RSA)
+        ec2: -----END SSH HOST KEY FINGERPRINTS-----
+        ec2: #############################################################
+        """)
+    result = get_fingerprints(data)
+    assert result == [
+        dict(keylen=256, keytype='ed25519', fingerprint='56:0f:1a:4d:cc:66:0a:9e:90:d5:1d:98:3a:03:ef:b6'),
+        dict(keylen=1024, keytype='dsa', fingerprint='7b:0d:a3:0d:9e:fc:f3:97:bb:a8:d2:1d:05:3f:d5:f9'),
+        dict(keylen=256, keytype='ecdsa', fingerprint='96:c6:3c:47:7b:11:eb:8a:ca:78:ed:20:d6:21:f2:b7'),
+        dict(keylen=2048, keytype='rsa1', fingerprint='b6:8a:43:51:72:af:49:88:a5:d6:c5:7f:3c:fd:91:70'),
+        dict(keylen=2048, keytype='rsa', fingerprint='ef:85:3d:e6:ab:c4:18:88:81:63:08:0f:32:8a:9d:e0')]

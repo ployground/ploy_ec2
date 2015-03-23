@@ -1,5 +1,7 @@
 from lazy import lazy
-from ploy.common import BaseMaster, BaseInstance, StartupScriptMixin
+from operator import itemgetter
+from ploy.common import BaseMaster, StartupScriptMixin
+from ploy.plain import Instance as BaseInstance
 from ploy.config import BaseMassager, BooleanMassager
 from ploy.config import HooksMassager, PathMassager
 from ploy.config import StartupScriptMassager
@@ -7,6 +9,7 @@ import argparse
 import datetime
 import logging
 import os
+import re
 import sys
 import time
 
@@ -14,62 +17,32 @@ import time
 log = logging.getLogger('ploy_ec2')
 
 
-class InitSSHKeyMixin(object):
-    def init_ssh_key(self, user=None):
-        paramiko = self.paramiko
+re_hex_byte = '[0-9a-fA-F]{2}'
+re_fingerprint = "(?:%s:){15}%s" % (re_hex_byte, re_hex_byte)
+re_fingerprint_info = "^.*?(\d+)\s+(%s)(.*)$" % re_fingerprint
+fingerprint_regexp = re.compile(re_fingerprint_info, re.MULTILINE)
+fingerprint_type_regexp = re.compile("\((.*?)\)")
 
-        class AWSHostKeyPolicy(paramiko.MissingHostKeyPolicy):
-            def __init__(self, ec2_instance):
-                self.ec2_instance = ec2_instance
 
-            def missing_host_key(self, client, hostname, key):
-                fingerprint = ':'.join("%02x" % ord(x) for x in key.get_fingerprint())
-                if self.ec2_instance.public_dns_name == hostname:
-                    output = self.ec2_instance.get_console_output().output
-                    if output is None or output.strip() == '':
-                        raise paramiko.SSHException('No console output (yet) for %s' % hostname)
-                    if fingerprint in output:
-                        client.get_host_keys().add(hostname, key.get_name(), key)
-                        if client._host_keys_filename is not None:
-                            client.save_host_keys(client._host_keys_filename)
-                        return
-                    else:
-                        raise paramiko.SSHException('Fingerprint not in console output of %s' % hostname)
-                raise paramiko.SSHException('Unknown server %s' % hostname)
-
-        ec2_instance = self.ec2_instance
-        if ec2_instance is None:
-            log.error("Can't establish ssh connection.")
-            return
-        if user is None:
-            user = 'root'
-        host = str(ec2_instance.public_dns_name)
-        port = 22
-        client = paramiko.SSHClient()
-        client.set_missing_host_key_policy(AWSHostKeyPolicy(ec2_instance))
-        client_args = dict(
-            port=int(port),
-            username=user,
-            key_filename=self.config.get('ssh-key-filename', None))
-        known_hosts = self.master.known_hosts
-        while 1:
-            if os.path.exists(known_hosts):
-                client.load_host_keys(known_hosts)
-            try:
-                client.connect(host, **client_args)
-                break
-            except paramiko.BadHostKeyException:
-                if os.path.exists(known_hosts):
-                    os.remove(known_hosts)
-                    open(known_hosts, 'w').close()
-                client.get_host_keys().clear()
-        client.save_host_keys(known_hosts)
-        return dict(
-            user=user,
-            host=host,
-            port=port,
-            client=client,
-            UserKnownHostsFile=known_hosts)
+def get_fingerprints(data):
+    fingerprints = []
+    for match in fingerprint_regexp.findall(data):
+        info = dict(keylen=int(match[0]), fingerprint=match[1])
+        key_info = match[2].lower()
+        if '(rsa1)' in key_info or 'ssh_host_key' in key_info:
+            info['keytype'] = 'rsa1'
+        elif '(rsa)' in key_info or 'ssh_host_rsa_key' in key_info:
+            info['keytype'] = 'rsa'
+        elif '(dsa)' in key_info or 'ssh_host_dsa_key' in key_info:
+            info['keytype'] = 'dsa'
+        elif '(ecdsa)' in key_info or 'ssh_host_ecdsa_key' in key_info:
+            info['keytype'] = 'ecdsa'
+        else:
+            match = fingerprint_type_regexp.search(key_info)
+            if match:
+                info['keytype'] = match.group(1)
+        fingerprints.append(info)
+    return sorted(fingerprints, key=itemgetter('fingerprint'))
 
 
 class ConnMixin(object):
@@ -84,12 +57,24 @@ class ConnMixin(object):
         return self.master.get_ec2_conn(region_id)
 
 
-class Instance(BaseInstance, StartupScriptMixin, InitSSHKeyMixin, ConnMixin):
+class Instance(BaseInstance, StartupScriptMixin, ConnMixin):
     max_startup_script_size = 16 * 1024
     sectiongroupname = 'ec2-instance'
 
     def get_massagers(self):
         return get_instance_massagers()
+
+    def get_fingerprints(self):
+        output = self.ec2_instance.get_console_output().output
+        if output is None or output.strip() == '':
+            raise self.paramiko.SSHException('No console output (yet) for %s' % self.get_host())
+        return get_fingerprints(output)
+
+    def get_fingerprint(self):
+        for fingerprint in self.get_fingerprints():
+            if fingerprint.get('keytype') == 'rsa':
+                return fingerprint['fingerprint']
+        raise self.paramiko.SSHException('Fingerprint not in console output of %s' % self.get_host())
 
     @lazy
     def ec2_instance(self):
@@ -299,7 +284,7 @@ class Instance(BaseInstance, StartupScriptMixin, InitSSHKeyMixin, ConnMixin):
             volume.create_snapshot(description=description)
 
 
-class Connection(InitSSHKeyMixin, ConnMixin):
+class Connection(ConnMixin):
     """ This is more or less a dummy object to get a connection to AWS for
         Fabric scripts. """
     def __init__(self, master, sid, config):
