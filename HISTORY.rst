@@ -1,7 +1,7 @@
 Changelog
 =========
 
-1.1.2 - Unreleased
+1.2.0 - Unreleased
 ------------------
 
 * Fix support of console output for the ``ploy debug -c`` command.
