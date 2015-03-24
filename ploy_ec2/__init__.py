@@ -2,7 +2,7 @@ from lazy import lazy
 from operator import itemgetter
 from ploy.common import BaseMaster, StartupScriptMixin
 from ploy.plain import Instance as BaseInstance
-from ploy.config import BaseMassager, BooleanMassager
+from ploy.config import BaseMassager, BooleanMassager, IntegerMassager
 from ploy.config import HooksMassager, PathMassager
 from ploy.config import StartupScriptMassager
 import argparse
@@ -109,12 +109,9 @@ class Instance(BaseInstance, StartupScriptMixin, ConnMixin):
         return images[0]
 
     def securitygroups(self):
-        securitygroups = getattr(self, '_securitygroups', None)
-        if securitygroups is None:
-            self._securitygroups = securitygroups = Securitygroups(self)
         sgs = []
         for sgid in self.config.get('securitygroups', []):
-            sgs.append(securitygroups.get(sgid, create=True))
+            sgs.append(self.master.securitygroups.get(sgid, create=True))
         return sgs
 
     def get_host(self):
@@ -200,6 +197,7 @@ class Instance(BaseInstance, StartupScriptMixin, ConnMixin):
 
     def start(self, overrides=None):
         config = self.get_config(overrides)
+        placement = config['placement']
         ec2_instance = self.ec2_instance
         if ec2_instance is not None:
             log.info("Instance state: %s", ec2_instance.state)
@@ -222,8 +220,7 @@ class Instance(BaseInstance, StartupScriptMixin, ConnMixin):
                 block_device_map=config.get('device_map', None),
                 security_groups=self.securitygroups(),
                 user_data=self.startup_script(overrides=overrides),
-                placement=config['placement']
-            )
+                placement=placement)
             ec2_instance = reservation.instances[0]
             log.info("Instance created, waiting until it's available")
         while ec2_instance.state != 'running':
@@ -251,13 +248,17 @@ class Instance(BaseInstance, StartupScriptMixin, ConnMixin):
         volumes = dict((x.id, x) for x in self.ec2_conn.get_all_volumes())
         for volume_id, device in config.get('volumes', []):
             if volume_id not in volumes:
-                log.error("Unknown volume %s" % volume_id)
-                return
-            volume = volumes[volume_id]
+                try:
+                    volume = self.master.volumes[volume_id].volume(placement)
+                except KeyError:
+                    log.error("Unknown volume %s" % volume_id)
+                    return
+            else:
+                volume = volumes[volume_id]
             if volume.attachment_state() == 'attached':
                 continue
             log.info("Attaching storage (%s on %s)" % (volume_id, device))
-            self.ec2_conn.attach_volume(volume_id, ec2_instance.id, device)
+            self.ec2_conn.attach_volume(volume.id, ec2_instance.id, device)
 
         snapshots = dict((x.id, x) for x in self.ec2_conn.get_all_snapshots(owner="self"))
         for snapshot_id, device in config.get('snapshots', []):
@@ -266,7 +267,7 @@ class Instance(BaseInstance, StartupScriptMixin, ConnMixin):
                 return
             log.info("Creating volume from snapshot: %s" % snapshot_id)
             snapshot = snapshots[snapshot_id]
-            volume = self.ec2_conn.create_volume(snapshot.volume_size, config['placement'], snapshot_id)
+            volume = self.ec2_conn.create_volume(snapshot.volume_size, placement, snapshot_id)
             log.info("Attaching storage (%s on %s)" % (volume.id, device))
             self.ec2_conn.attach_volume(volume.id, ec2_instance.id, device)
 
@@ -278,7 +279,7 @@ class Instance(BaseInstance, StartupScriptMixin, ConnMixin):
         else:
             devs = set(devs)
         volume_ids = [x[0] for x in self.config.get('volumes', []) if x[1] in devs]
-        volumes = dict((x.id, x) for x in self.ec2_conn.get_all_volumes())
+        volumes = dict((x.id, x) for x in self.ec2_conn.get_all_volumes(volume_ids=volume_ids))
         for volume_id in volume_ids:
             volume = volumes[volume_id]
             date = datetime.datetime.now().strftime("%Y%m%d%H%M")
@@ -299,19 +300,69 @@ class Connection(ConnMixin):
         return None
 
 
+class Volume(object):
+    def __init__(self, name, config, master):
+        self.name = name
+        self.config = config
+        self.master = master
+
+    def volume(self, placement):
+        volumes = {}
+        for volume in self.master.ec2_conn.get_all_volumes():
+            name_tag = volume.tags.get('Name')
+            if not name_tag:
+                continue
+            volumes[name_tag] = volume
+        if self.name in volumes:
+            return volumes[self.name]
+        if 'size' not in self.config:
+            log.error("Missing option 'size' for [ec2-volume:%s].", self.name)
+        volume = self.master.ec2_conn.create_volume(
+            self.config['size'], placement,
+            snapshot=self.config.get('snapshot'),
+            volume_type=self.config.get('volume_type'),
+            iops=self.config.get('iops'),
+            encrypted=self.config.get('encrypted'))
+        self.master.ec2_conn.create_tags(volume.id, {'Name': self.name})
+        return volume
+
+    def __contains__(self, name):
+        return name in self.volumes
+
+
+class InfoBase(object):
+    def __init__(self, master):
+        self.master = master
+        self.config = self.master.main_config.get(self.sectiongroupname, {})
+        self._cache = {}
+
+    def __getitem__(self, key):
+        if key not in self._cache:
+            self._cache[key] = self.klass(key, self.config[key], self.master)
+        return self._cache[key]
+
+
+class Volumes(InfoBase):
+    sectiongroupname = 'ec2-volume'
+    klass = Volume
+
+    def __init__(self, master):
+        InfoBase.__init__(self, master)
+
+
 class Securitygroups(object):
-    def __init__(self, server):
-        self.server = server
+    def __init__(self, master):
+        self.master = master
         self.update()
 
     def update(self):
-        self.securitygroups = dict((x.name, x) for x in self.server.ec2_conn.get_all_security_groups())
+        self.securitygroups = dict((x.name, x) for x in self.master.ec2_conn.get_all_security_groups())
 
     def get(self, sgid, create=False):
-        if 'ec2-securitygroup' not in self.server.master.main_config:
+        if 'ec2-securitygroup' not in self.master.main_config:
             log.error("No security groups defined in configuration.")
             sys.exit(1)
-        securitygroup = self.server.master.main_config['ec2-securitygroup'][sgid]
+        securitygroup = self.master.main_config['ec2-securitygroup'][sgid]
         if sgid not in self.securitygroups:
             if not create:
                 raise KeyError
@@ -319,7 +370,7 @@ class Securitygroups(object):
                 description = securitygroup['description']
             else:
                 description = "security settings for %s" % sgid
-            sg = self.server.ec2_conn.create_security_group(sgid, description)
+            sg = self.master.ec2_conn.create_security_group(sgid, description)
             self.update()
         else:
             sg = self.securitygroups[sgid]
@@ -489,6 +540,14 @@ class Master(BaseMaster):
             sys.exit(1)
         return self.get_ec2_conn(region_id)
 
+    @lazy
+    def securitygroups(self):
+        return Securitygroups(self)
+
+    @lazy
+    def volumes(self):
+        return Volumes(self)
+
 
 class SecuritygroupsMassager(BaseMassager):
     def __call__(self, config, sectionname):
@@ -602,6 +661,12 @@ def get_massagers():
     sectiongroupname = 'ec2-securitygroup'
     massagers.extend([
         ConnectionsMassager(sectiongroupname, 'connections')])
+
+    sectiongroupname = 'ec2-volume'
+    massagers.extend([
+        IntegerMassager(sectiongroupname, 'size'),
+        IntegerMassager(sectiongroupname, 'iops'),
+        BooleanMassager(sectiongroupname, 'encrypted')])
 
     return massagers
 

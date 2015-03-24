@@ -4,6 +4,9 @@ Changelog
 1.2.0 - Unreleased
 ------------------
 
+* Allow volume definition via ``ec2-volume`` sections.
+  [fschulze]
+
 * Fix support of console output for the ``ploy debug -c`` command.
   [fschulze]
 

@@ -82,6 +82,25 @@ Securitygroups
         tcp     80      80      0.0.0.0/0
 
 
+Volumes
+=======
+
+You can define volumes via ``ec2-volume`` sections.
+The id of the section must not start with ``vol-``.
+You can declare the ``size`` as a number of GB.
+
+If the volume doesn't exist, it is automatically created.
+
+::
+
+  [ec2-volume:a-volume-name]
+  size = 100
+
+  [ec2-instance:foo]
+  ...
+  volumes = a-volume-name /dev/sdf
+
+
 Macro expansion
 ===============
 
