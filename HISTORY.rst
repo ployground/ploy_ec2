@@ -1,7 +1,7 @@
 Changelog
 =========
 
-1.2.0 - Unreleased
+1.2.0 - 2015-09-03
 ------------------
 
 * Check status of volume to give helpful error message if it's still attached.
