@@ -222,7 +222,7 @@ class Instance(BaseInstance, StartupScriptMixin, ConnMixin):
                 user_data=self.startup_script(overrides=overrides),
                 placement=placement)
             ec2_instance = reservation.instances[0]
-            log.info("Instance created, waiting until it's available")
+            log.info("Instance '%s' created, waiting until it's available", ec2_instance.id)
         while ec2_instance.state != 'running':
             if ec2_instance.state != 'pending':
                 log.error("Something went wrong, instance status: %s", ec2_instance.state)
@@ -255,9 +255,16 @@ class Instance(BaseInstance, StartupScriptMixin, ConnMixin):
                     return
             else:
                 volume = volumes[volume_id]
+            if volume_id != volume.id:
+                volume_id = "%s (%s)" % (volume_id, volume.id)
             if volume.attachment_state() == 'attached':
-                continue
-            log.info("Attaching storage (%s on %s)" % (volume_id, device))
+                if volume.attach_data.instance_id == ec2_instance.id:
+                    continue
+                log.error(
+                    "Volume %s already attached to instance %s.",
+                    volume.id, volume.attach_data.instance_id)
+                sys.exit(1)
+            log.info("Attaching storage %s on %s" % (volume_id, device))
             self.ec2_conn.attach_volume(volume.id, ec2_instance.id, device)
 
         snapshots = dict((x.id, x) for x in self.ec2_conn.get_all_snapshots(owner="self"))

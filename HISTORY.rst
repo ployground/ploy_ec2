@@ -4,6 +4,9 @@ Changelog
 1.2.0 - Unreleased
 ------------------
 
+* Check status of volume to give helpful error message if it's still attached.
+  [fschulze]
+
 * Allow volume definition via ``ec2-volume`` sections.
   [fschulze]
 
