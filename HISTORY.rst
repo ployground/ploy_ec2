@@ -1,8 +1,11 @@
 Changelog
 =========
 
-1.2.1 - Unreleased
+2.0.0 - Unreleased
 ------------------
+
+* Support for ploy 2.0.0.
+  [fschulze]
 
 * Support yet another ssh key output format from console output of instance.
   [fschulze]

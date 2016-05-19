@@ -7,6 +7,6 @@
 /coverage/
 /coverage.ini
 /develop-eggs/
-/htmlcov/
+/htmlcov*/
 dist
 /setuptools_git-*.egg

@@ -1,3 +1,4 @@
+from __future__ import unicode_literals
 from mock import patch
 from ploy import Controller
 from unittest import TestCase

@@ -1,4 +1,4 @@
-from __future__ import print_function
+from __future__ import print_function, unicode_literals
 from lazy import lazy
 from operator import itemgetter
 from ploy.common import BaseMaster, StartupScriptMixin
@@ -10,6 +10,7 @@ import argparse
 import datetime
 import logging
 import os
+import paramiko
 import re
 import sys
 import time
@@ -75,14 +76,14 @@ class Instance(BaseInstance, StartupScriptMixin, ConnMixin):
     def get_fingerprints(self):
         output = self.ec2_instance.get_console_output().output
         if output is None or output.strip() == '':
-            raise self.paramiko.SSHException('No console output (yet) for %s' % self.get_host())
+            raise paramiko.SSHException('No console output (yet) for %s' % self.get_host())
         return get_fingerprints(output)
 
     def get_fingerprint(self):
         for fingerprint in self.get_fingerprints():
             if fingerprint.get('keytype') == 'rsa':
                 return fingerprint['fingerprint']
-        raise self.paramiko.SSHException('Fingerprint not in console output of %s' % self.get_host())
+        raise paramiko.SSHException('Fingerprint not in console output of %s' % self.get_host())
 
     @lazy
     def ec2_instance(self):
