@@ -436,3 +436,62 @@ def test_get_fingerprints():
         dict(keylen=256, keytype='ecdsa', fingerprint='96:c6:3c:47:7b:11:eb:8a:ca:78:ed:20:d6:21:f2:b7'),
         dict(keylen=2048, keytype='rsa1', fingerprint='b6:8a:43:51:72:af:49:88:a5:d6:c5:7f:3c:fd:91:70'),
         dict(keylen=2048, keytype='rsa', fingerprint='ef:85:3d:e6:ab:c4:18:88:81:63:08:0f:32:8a:9d:e0')]
+
+    data = textwrap.dedent("""
+        Generating public/private rsa key pair.
+        Your identification has been saved in /etc/ssh/ssh_host_rsa_key.
+        Your public key has been saved in /etc/ssh/ssh_host_rsa_key.pub.
+        The key fingerprint is:
+        31:57:c4:d7:ee:34:9a:0d:f3:bb:89:39:5d:47:cd:73 root@ip-10-9-28-89
+        The key's randomart image is:
+        +--[ RSA 2048]----+
+        |           oo  . |
+        |           .. . .|
+        |        o .  . o.|
+        |         +   o oE|
+        |        S     B++|
+        |             o o+|
+        |              . +|
+        |             .oo.|
+        |             o.o.|
+        +-----------------+
+        Generating public/private dsa key pair.
+        Your identification has been saved in /etc/ssh/ssh_host_dsa_key.
+        Your public key has been saved in /etc/ssh/ssh_host_dsa_key.pub.
+        The key fingerprint is:
+        da:01:9b:79:49:90:83:d6:df:6e:e6:75:34:2d:12:85 root@ip-10-9-28-89
+        The key's randomart image is:
+        +--[ DSA 1024]----+
+        |     o..     o.  |
+        |    o +.    E    |
+        |   .  .o..   . . |
+        |       *... . + .|
+        |      + S.   o o |
+        |       + .+ . .  |
+        |      . .+ . .   |
+        |          .      |
+        |                 |
+        +-----------------+
+        Generating public/private ecdsa key pair.
+        Your identification has been saved in /etc/ssh/ssh_host_ecdsa_key.
+        Your public key has been saved in /etc/ssh/ssh_host_ecdsa_key.pub.
+        The key fingerprint is:
+        01:b7:73:92:41:4e:b2:f8:df:6a:72:7a:49:d7:4f:1d root@ip-10-9-28-89
+        The key's randomart image is:
+        +--[ECDSA  256]---+
+        |      o.=        |
+        |     . B +       |
+        |    . . B .      |
+        |     .   =     E |
+        |      . S  .   ..|
+        |       .... . . .|
+        |       ..o.  o   |
+        |      . =.    .  |
+        |      .*.        |
+        +-----------------+
+        """)
+    result = get_fingerprints(data)
+    assert result == [
+        dict(keylen=None, fingerprint='01:b7:73:92:41:4e:b2:f8:df:6a:72:7a:49:d7:4f:1d'),
+        dict(keylen=None, fingerprint='31:57:c4:d7:ee:34:9a:0d:f3:bb:89:39:5d:47:cd:73'),
+        dict(keylen=None, fingerprint='da:01:9b:79:49:90:83:d6:df:6e:e6:75:34:2d:12:85')]
