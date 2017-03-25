@@ -1,3 +1,4 @@
+from __future__ import print_function
 from lazy import lazy
 from operator import itemgetter
 from ploy.common import BaseMaster, StartupScriptMixin
@@ -631,10 +632,10 @@ class ListSnapshotsCmd(object):
         for master in self.ctrl.get_masters('snapshots'):
             snapshots.extend(master.snapshots.values())
         snapshots = sorted(snapshots, key=lambda x: x.start_time)
-        print "id            time                      size   volume       progress description"
+        print("id            time                      size   volume       progress description")
         for snapshot in snapshots:
             info = snapshot.__dict__
-            print "{id} {start_time} {volume_size:>4} GB {volume_id} {progress:>8} {description}".format(**info)
+            print("{id} {start_time} {volume_size:>4} GB {volume_id} {progress:>8} {description}".format(**info))
 
 
 def get_instance_massagers(sectiongroupname='instance'):
@@ -689,7 +690,7 @@ def get_macro_cleaners(main_config):
 
 def get_masters(ctrl):
     masters = ctrl.config.get('ec2-master', {})
-    for master, master_config in masters.iteritems():
+    for master, master_config in masters.items():
         yield Master(ctrl, master, master_config)
 
 
