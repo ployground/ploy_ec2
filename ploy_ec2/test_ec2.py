@@ -1,6 +1,6 @@
 from mock import patch
 from ploy import Controller
-from unittest2 import skip, TestCase
+from unittest import TestCase
 import os
 import tempfile
 import shutil
@@ -237,7 +237,6 @@ class EC2Tests(TestCase):
             aws_access_key_id='ham', aws_secret_access_key='egg')
         LogMock.info.assert_called_with("Instance '%s' unavailable.", 'foo')
 
-    @skip("TODO")
     def testNoSecurityGroupDefined(self):
         return NotImplemented
 
