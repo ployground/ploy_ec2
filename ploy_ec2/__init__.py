@@ -21,9 +21,9 @@ log = logging.getLogger('ploy_ec2')
 
 re_hex_byte = '[0-9a-fA-F]{2}'
 re_fingerprint = "(?:%s:){15}%s" % (re_hex_byte, re_hex_byte)
-re_fingerprint_info = "^.*?(\d*)\s*(%s)(.*)$" % re_fingerprint
+re_fingerprint_info = r"^.*?(\d*)\s*(%s)(.*)$" % re_fingerprint
 fingerprint_regexp = re.compile(re_fingerprint_info, re.MULTILINE)
-fingerprint_type_regexp = re.compile("\((.*?)\)")
+fingerprint_type_regexp = re.compile(r"\((.*?)\)")
 
 
 def get_fingerprints(data):
